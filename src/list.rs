@@ -41,12 +41,10 @@ impl<T> List<T> {
     fn pop_verbose(&mut self) -> Option<T> {
         let node = self.head.take();
         match node {
-            None => {
-                return None;
-            }
+            None => None,
             Some(x) => {
                 self.head = x.next;
-                return Some((*x).data);
+                Some((*x).data)
             }
         }
     }
@@ -60,6 +58,46 @@ impl<T> List<T> {
         }
         count
     }
+
+    fn peek(&self) -> Option<&T> {
+        self.head.as_ref().map(|node| &node.data)
+    }
+
+    fn peek_mut(&mut self) -> Option<&mut T> {
+        self.head.as_mut().map(|node| &mut node.data)
+    }
+
+    fn empty(&self) -> bool {
+        self.head.is_none()
+    }
+
+    fn iter(&self) -> Iter<T> {
+        Iter {
+            next: self.head.as_deref(),
+        }
+    }
+}
+
+// Iter has some (vague) lifetime, 'a.
+impl<T> Iterator for List<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.pop()
+    }
+}
+
+struct Iter<'a, T> {
+    next: Option<&'a Node<T>>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.map(|node| {
+            self.next = node.next.as_deref();
+            &node.data
+        })
+    }
 }
 
 #[cfg(test)]
@@ -69,6 +107,7 @@ mod test {
     fn test_push_pop() {
         let mut list: List<i32> = List::new();
         assert_eq!(list.pop(), None);
+        assert_eq!(list.empty(), true);
 
         list.push(3);
         list.push(2);
@@ -88,6 +127,46 @@ mod test {
         assert_eq!(list.pop_verbose(), Some(2));
         assert_eq!(list.pop_verbose(), Some(3));
         assert_eq!(list.pop(), None);
+    }
+
+    #[test]
+    fn test_peek() {
+        let s = "cat".to_string();
+        let mut list = List::new();
+        list.push(s);
+        assert_eq!(list.peek().unwrap(), "cat");
+
+        match list.peek_mut() {
+            None => (),
+            Some(s) => {
+                *s = "dog".to_string();
+            }
+        }
+        assert_ne!(list.peek().unwrap(), "cat");
+        assert_eq!(list.peek().unwrap(), "dog");
+    }
+
+    #[test]
+    fn test_iter() {
+        let mut list = List::new();
+        list.push(3);
+        list.push(2);
+        list.push(1);
+        let mut iter = list.into_iter();
+        for i in 1..4 {
+            assert_eq!(iter.next().unwrap(), i);
+        }
+        assert_eq!(iter.next(), None);
+
+        let mut list = List::new();
+        list.push(3);
+        list.push(2);
+        list.push(1);
+        let mut iter = list.iter();
+        for i in 1..4 {
+            assert_eq!(iter.next().unwrap(), &i);
+        }
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
